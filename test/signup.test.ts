@@ -42,8 +42,7 @@ test("Should not create a passenger account without name", async function () {
     isPassenger: true,
   };
 
-  const output = await signup(input);
-  expect(output).toBe(-3);
+  await expect(() => signup(input)).rejects.toThrow("Invalid name");
 });
 
 test("Should not create a passenger account with invalid email", async function () {
@@ -54,8 +53,7 @@ test("Should not create a passenger account with invalid email", async function 
     isPassenger: true,
   };
 
-  const output = await signup(input);
-  expect(output).toBe(-2);
+  await expect(() => signup(input)).rejects.toThrow("Invalid email");
 });
 
 test("Should not create a passenger account with invalid cpf", async function () {
@@ -66,8 +64,7 @@ test("Should not create a passenger account with invalid cpf", async function ()
     isPassenger: true,
   };
 
-  const output = await signup(input);
-  expect(output).toBe(-1);
+  await expect(() => signup(input)).rejects.toThrow("Invalid cpf");
 });
 
 test("Should not create a passenger account that alredy exists", async function () {
@@ -78,8 +75,7 @@ test("Should not create a passenger account that alredy exists", async function 
     isPassenger: true,
   };
   await signup(input);
-  const output = await signup(input);
-  expect(output).toBe(-4);
+  expect(() => signup(input)).rejects.toThrow("Account already exists!");
 });
 
 test("Should not create a driver account with invalid plate number", async function () {
@@ -90,6 +86,5 @@ test("Should not create a driver account with invalid plate number", async funct
     carPlate: "AAA999",
     isDriver: true,
   };
-  const output = await signup(input);
-  expect(output).toBe(-5);
+  expect(() => signup(input)).rejects.toThrow("Invalid plate number");
 });
