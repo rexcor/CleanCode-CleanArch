@@ -1,4 +1,4 @@
-import { signup, getAccount } from "../src/signup";
+import { signup, getAccount } from "../src/application";
 
 test("Should create an account for the passenger", async function () {
   const input = {
