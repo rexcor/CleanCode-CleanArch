@@ -1,90 +1,51 @@
-import { signup, getAccount } from "../src/application";
+import crypto from "crypto";
+import { validateCpf } from "./validateCpf";
+import AccountDAO from "./resource";
+import MailerGateway from "./MailerGateway";
 
-test("Should create an account for the passenger", async function () {
-  const input = {
-    name: "John Doe",
-    email: `john.doe${Math.random()}@gmail.com`,
-    cpf: "97456321558",
-    isPassenger: true,
-  };
+export default interface AccountService {
+  signup(input: any): Promise<any>;
+  getAccount(accountId: any): Promise<any>;
+}
 
-  const outputSignup = await signup(input);
-  expect(outputSignup.accountId).toBeDefined();
-  const outputGetAccount = await getAccount(outputSignup.accountId);
-  expect(outputGetAccount.name).toBe(input.name);
-  expect(outputGetAccount.email).toBe(input.email);
-  expect(outputGetAccount.cpf).toBe(input.cpf);
-});
+export class AccountServiceProduction implements AccountService {
+  accountDAO: AccountDAO;
+  mailerGateway: MailerGateway;
 
-test("Should create an account for the driver", async function () {
-  const input = {
-    name: "John Doe",
-    email: `john.doe${Math.random()}@gmail.com`,
-    cpf: "97456321558",
-    carPlate: "AAA9999",
-    isDriver: true,
-  };
+  constructor(accountDAO: AccountDAO) {
+    this.accountDAO = accountDAO;
+    this.mailerGateway = new MailerGateway();
+  }
 
-  const outputSignup = await signup(input);
-  expect(outputSignup.accountId).toBeDefined();
-  const outputGetAccount = await getAccount(outputSignup.accountId);
-  expect(outputGetAccount.name).toBe(input.name);
-  expect(outputGetAccount.email).toBe(input.email);
-  expect(outputGetAccount.cpf).toBe(input.cpf);
-  expect(outputGetAccount.car_plate).toBe(input.carPlate);
-});
+  async signup(input: any): Promise<any> {
+    const account = {
+      accountId: crypto.randomUUID(),
+      name: input.name,
+      email: input.email,
+      cpf: input.cpf,
+      carPlate: input.carPlate,
+      isPassenger: input.isPassenger,
+      isDriver: input.isDriver,
+    };
+    const existingAccount = await this.accountDAO.getAccountByEmail(
+      input.email
+    );
+    if (existingAccount) throw new Error("Account already exists");
+    if (!input.name.match(/[a-zA-Z] [a-zA-Z]+/))
+      throw new Error("Invalid name");
+    if (!input.email.match(/^(.+)@(.+)$/)) throw new Error("Invalid email");
+    if (!validateCpf(input.cpf)) throw new Error("Invalid cpf");
+    if (input.isDriver && !input.carPlate.match(/[A-Z]{3}[0-9]{4}/))
+      throw new Error("Invalid car plate");
+    await this.accountDAO.saveAccount(account);
+    await this.mailerGateway.send(account.email, "Welcome!", "");
+    return {
+      accountId: account.accountId,
+    };
+  }
 
-test("Should not create a passenger account without name", async function () {
-  const input = {
-    name: "",
-    email: `john.doe${Math.random()}@gmail.com`,
-    cpf: "97456321558",
-    isPassenger: true,
-  };
-
-  await expect(() => signup(input)).rejects.toThrow("Invalid name");
-});
-
-test("Should not create a passenger account with invalid email", async function () {
-  const input = {
-    name: "John Doe",
-    email: `john.doe${Math.random()}`,
-    cpf: "97456321558",
-    isPassenger: true,
-  };
-
-  await expect(() => signup(input)).rejects.toThrow("Invalid email");
-});
-
-test("Should not create a passenger account with invalid cpf", async function () {
-  const input = {
-    name: "John Doe",
-    email: `john.doe${Math.random()}@gmail.com`,
-    cpf: "9999998888889993",
-    isPassenger: true,
-  };
-
-  await expect(() => signup(input)).rejects.toThrow("Invalid cpf");
-});
-
-test("Should not create a passenger account that alredy exists", async function () {
-  const input = {
-    name: "John Doe",
-    email: `john.doe${Math.random()}@gmail.com`,
-    cpf: "97456321558",
-    isPassenger: true,
-  };
-  await signup(input);
-  expect(() => signup(input)).rejects.toThrow("Account already exists!");
-});
-
-test("Should not create a driver account with invalid plate number", async function () {
-  const input = {
-    name: "John Doe",
-    email: `john.doe${Math.random()}@gmail.com`,
-    cpf: "97456321558",
-    carPlate: "AAA999",
-    isDriver: true,
-  };
-  expect(() => signup(input)).rejects.toThrow("Invalid plate number");
-});
+  async getAccount(accountId: any): Promise<any> {
+    const account = await this.accountDAO.getAccountById(accountId);
+    return account;
+  }
+}

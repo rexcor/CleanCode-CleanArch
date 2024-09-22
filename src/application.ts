@@ -1,47 +1,51 @@
 import crypto from "crypto";
-import pgp from "pg-promise";
 import { validateCpf } from "./validateCpf";
+import AccountDAO from "./resource";
+import MailerGateway from "./MailerGateway";
 
-export async function signup(input: any): Promise<any> {
-  const connection = pgp()("postgres://postgres:123456@localhost:5432/appp");
-  try {
-    const accountId = crypto.randomUUID();
-    const [existingAccount] = await connection.query(
-      "select * from cccat17.account where email = $1",
-      [input.email]
+export default interface AccountService {
+  signup(input: any): Promise<any>;
+  getAccount(accountId: any): Promise<any>;
+}
+
+export class AccountServiceProduction implements AccountService {
+  accountDAO: AccountDAO;
+  mailerGateway: MailerGateway;
+
+  constructor(accountDAO: AccountDAO) {
+    this.accountDAO = accountDAO;
+    this.mailerGateway = new MailerGateway();
+  }
+
+  async signup(input: any): Promise<any> {
+    const account = {
+      accountId: crypto.randomUUID(),
+      name: input.name,
+      email: input.email,
+      cpf: input.cpf,
+      carPlate: input.carPlate,
+      isPassenger: input.isPassenger,
+      isDriver: input.isDriver,
+    };
+    const existingAccount = await this.accountDAO.getAccountByEmail(
+      input.email
     );
-    if (existingAccount) throw new Error("Account already exists!");
+    if (existingAccount) throw new Error("Account already exists");
     if (!input.name.match(/[a-zA-Z] [a-zA-Z]+/))
       throw new Error("Invalid name");
     if (!input.email.match(/^(.+)@(.+)$/)) throw new Error("Invalid email");
     if (!validateCpf(input.cpf)) throw new Error("Invalid cpf");
     if (input.isDriver && !input.carPlate.match(/[A-Z]{3}[0-9]{4}/))
-      throw new Error("Invalid plate number");
-    await connection.query(
-      "insert into cccat17.account (account_id, name, email, cpf, car_plate, is_passenger, is_driver) values ($1, $2, $3, $4, $5, $6, $7)",
-      [
-        accountId,
-        input.name,
-        input.email,
-        input.cpf,
-        input.carPlate,
-        !!input.isPassenger,
-        !!input.isDriver,
-      ]
-    );
+      throw new Error("Invalid car plate");
+    await this.accountDAO.saveAccount(account);
+    await this.mailerGateway.send(account.email, "Welcome!", "");
     return {
-      accountId,
+      accountId: account.accountId,
     };
-  } finally {
-    await connection.$pool.end();
   }
-}
-export async function getAccount(accountId: any): Promise<any> {
-  const connection = pgp()("postgres://postgres:123456@localhost:5432/appp");
-  const [account] = await connection.query(
-    "select * from cccat17.account where account_id = $1",
-    [accountId]
-  );
-  await connection.$pool.end();
-  return account;
+
+  async getAccount(accountId: any): Promise<any> {
+    const account = await this.accountDAO.getAccountById(accountId);
+    return account;
+  }
 }
