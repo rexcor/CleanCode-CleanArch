@@ -4,7 +4,7 @@ axios.defaults.validateStatus = function () {
   return true;
 };
 
-test("Should create a passenger account through the api", async function () {
+test("Deve criar uma conta de passageiro pela api", async function () {
   const inputSignup = {
     name: "John Doe",
     email: `john.doe${Math.random()}@gmail.com`,
@@ -26,7 +26,7 @@ test("Should create a passenger account through the api", async function () {
   expect(outputGetAccount.cpf).toBe(inputSignup.cpf);
 });
 
-test("Should not create a passenger account with invalid cpf through the api", async function () {
+test("Não deve criar uma conta de passageiro com cpf inválido pela api", async function () {
   const inputSignup = {
     name: "John Doe",
     email: `john.doe${Math.random()}@gmail.com`,
